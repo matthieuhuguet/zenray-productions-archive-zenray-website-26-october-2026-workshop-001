@@ -1,0 +1,23 @@
+{
+  "presets": [
+    {
+      "id": "A",
+      "title": "GT Ultra",
+      "ui": "GT Standard L"
+    },
+    {
+      "id": "B",
+      "title": "Literata",
+      "ui": "GT Standard L"
+    },
+    {
+      "id": "C",
+      "title": "GT Standard L",
+      "ui": "GT Standard L"
+    }
+  ],
+  "body": "Literata",
+  "number": "GT Ultra",
+  "brand": "GT Ultra",
+  "titleScale": 1
+}

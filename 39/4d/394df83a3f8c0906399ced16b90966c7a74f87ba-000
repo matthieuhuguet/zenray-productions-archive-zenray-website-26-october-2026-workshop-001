@@ -1,0 +1,9 @@
+// Preserve existing project metadata and attach explicit source references. 26 October 2026, 16:30 Paris.
+import fs from 'node:fs';
+import {requestAssets} from '/Users/zenray/Create/Build/Productions/GithubProductions/ZenRayProgress/scripts/Assets/BridgeClient.mjs';
+const registry=JSON.parse(fs.readFileSync('/Users/zenray/Library/Application Support/ZenRayAssets/Projects.json'));
+const project=registry.projects.find(p=>p.id==='zenray-website-26-october-2026');
+project.skills=['zenray-website','zenray-resume-coordinator','zenray-assets','zenray-edit'];
+project.sourceReferences=[{id:'website-repository',localPath:'/Users/zenray/Create/Build/Productions/GithubProductions/ZenRayWebsite',kind:'production',backup:'git'},{id:'website-skill',localPath:'/Users/zenray/.claude/skills/zenray-website/SKILL.md',kind:'instructions'}];
+project.dependencyNotes='26 October 2026: Production repository is referenced in sourceReferences and Project1.md. Mockups and notes are watched. Repository watching is not enabled: its path is outside current Assets roots.';
+await requestAssets({action:'register',project});console.log('Project metadata linked; production repository reference retained, not watched.');
