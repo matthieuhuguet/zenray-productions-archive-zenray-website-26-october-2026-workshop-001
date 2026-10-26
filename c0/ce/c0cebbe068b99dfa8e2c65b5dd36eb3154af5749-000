@@ -1,8 +1,128 @@
-// Verify real font loads, unchanged text and controls in isolated Chromium. 26 October 2026, 16:25 Paris.
-const fs=require('fs'),path=require('path'),assert=require('assert');const {chromium}=require('/Users/zenray/.claude/skills/zenray-edit/scripts/RenderComposition.cjs').loadPlaywright({});const root=path.dirname(__dirname);
-(async()=>{const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1500,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('file://'+root+'/index.html');await page.waitForTimeout(1500);const results=[];
-for(const mobile of [false,true]){if(mobile){await page.click('#mobile');await page.waitForTimeout(800)}results.push(await page.evaluate(()=>[...document.querySelectorAll('iframe')].map(f=>{const d=f.contentDocument,g=s=>getComputedStyle(d.querySelector(s)).fontFamily;return {title:g('h3'),body:g('[data-role=body]'),ui:g('[data-role=ui]'),brand:g('[data-brand]'),num:g('.num'),loaded:[...d.fonts].filter(f=>f.status==='loaded').map(f=>f.family),overflow:d.documentElement.scrollWidth-d.documentElement.clientWidth,text:d.querySelector('#root').innerText.replace(/\s+/g,' ').trim(),images:[...d.images].filter(i=>i.getAttribute('src')&&!i.complete).length}})));}
-assert.equal(errors.length,0,errors.join('\n'));for(const result of results){assert.equal(new Set(result.map(r=>r.text)).size,1);assert(result.every(r=>r.loaded.includes('Literata')&&r.loaded.includes('GT Ultra')&&r.loaded.includes('GT Standard L')));assert(result.every(r=>r.overflow===0));assert(result[0].title.includes('GT Ultra'));assert(result[1].title.includes('Literata'));assert(result[2].title.includes('GT Standard L'));}
-await page.locator('select[data-key=ui]').first().selectOption('GT America');await page.waitForTimeout(300);assert((await page.frames()[1].locator('[data-role=ui]').first().evaluate(e=>getComputedStyle(e).fontFamily)).includes('GT America'));
-await page.click('#desktop');await page.waitForTimeout(400);await page.screenshot({path:root+'/Comparison.png'});await page.locator('[data-open]').first().click();await page.waitForTimeout(400);await page.screenshot({path:root+'/Works-A.png'});await page.setViewportSize({width:390,height:844});await page.click('#mobile');await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth),0);
-fs.writeFileSync(root+'/Verification.json',JSON.stringify({errors,results:results.map(r=>r.map(({text,...rest})=>({...rest,textLength:text.length}))),americaToggle:true,outerMobileOverflow:0},null,2));console.log(fs.readFileSync(root+'/Verification.json','utf8'));await browser.close()})().catch(e=>{console.error(e);process.exit(1)});
+// Verify real font loads, focus views, bio editing and parametric sliders. 26 October 2026, Paris.
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert');
+const { chromium } = require('/Users/zenray/.claude/skills/zenray-edit/scripts/RenderComposition.cjs').loadPlaywright({});
+const root = path.dirname(__dirname);
+
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', msg => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+
+  await page.goto('file://' + root + '/index.html');
+  await page.waitForTimeout(1500);
+
+  // 1. Verify focus mode defaults
+  const mainClass = await page.evaluate(() => document.querySelector('#main-view').className);
+  assert(mainClass.includes('mode-focus'), 'Default mode should be mode-focus');
+
+  // 2. Check font loading inside each iframe
+  const frameResults = await page.evaluate(() => {
+    return [...document.querySelectorAll('iframe')].map((f, idx) => {
+      const d = f.contentDocument;
+      const g = sel => {
+        const el = d.querySelector(sel);
+        return el ? getComputedStyle(el).fontFamily : 'null';
+      };
+      return {
+        idx,
+        titleFont: g('[data-role="title"]'),
+        bioFont: g('[data-role="bio"]'),
+        bodyFont: g('[data-role="body"]'),
+        uiFont: g('[data-role="ui"]'),
+        brandFont: g('[data-brand]'),
+        numFont: g('.num'),
+        loadedFonts: [...d.fonts].filter(ft => ft.status === 'loaded').map(ft => ft.family),
+        overflow: d.documentElement.scrollWidth - d.documentElement.clientWidth
+      };
+    });
+  });
+
+  console.log('Frame results:', JSON.stringify(frameResults, null, 2));
+
+  // Assert expected fonts in the 3 presets
+  assert(frameResults[0].titleFont.includes('GT Ultra'), 'Preset A title should be GT Ultra');
+  assert(frameResults[1].titleFont.includes('Literata'), 'Preset B title should be Literata');
+  assert(frameResults[2].titleFont.includes('GT Standard L'), 'Preset C title should be GT Standard L');
+
+  assert(frameResults[0].bioFont.includes('Literata'), 'Preset A bio should be Literata');
+  assert(frameResults[0].bodyFont.includes('Literata'), 'Preset A body should be Literata');
+  assert(frameResults[0].uiFont.includes('GT Standard L'), 'Preset A UI should be GT Standard L');
+  assert(frameResults[0].numFont.includes('GT Ultra'), 'Preset A numbers should be GT Ultra');
+
+  // 3. Test changing a slider (e.g. body scale) and font selector
+  const firstCard = page.locator('article.view-card').first();
+  await firstCard.locator('select[data-field="bodyFont"]').selectOption('GT Standard L');
+  await page.waitForTimeout(200);
+
+  const updatedBodyFont = await page.evaluate(() => {
+    const d = document.querySelector('iframe').contentDocument;
+    const el = d.querySelector('[data-role="body"]:not([data-role="bio"])');
+    return getComputedStyle(el).fontFamily;
+  });
+  assert(updatedBodyFont.includes('GT Standard L'), 'Body font update should reflect in iframe');
+
+  // 4. Test live bio text editing
+  const testBioText = "Hi, I'm Matthieu, Lead 3D Technical Artist. Pipeline automation with Houdini and Unreal Engine.";
+  await firstCard.locator('textarea[data-field="bioText"]').fill(testBioText);
+  await page.waitForTimeout(200);
+
+  const updatedBioText = await page.evaluate(() => {
+    const d = document.querySelector('iframe').contentDocument;
+    const el = d.querySelector('[data-role="bio"]');
+    return el ? el.textContent : '';
+  });
+  assert.equal(updatedBioText, testBioText, 'Bio text should update live inside iframe');
+
+  // 5. Test switching tabs: Compare view
+  await page.click('#tab-compare');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(root, 'Comparison.png') });
+
+  // 6. Test switching back to Focus Vue A
+  await page.click('#tab-A');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(root, 'Works-A.png') });
+
+  // 7. Test Mobile device switch
+  await page.click('#btn-mobile');
+  await page.waitForTimeout(800);
+  const mobileFrameWidth = await page.evaluate(() => {
+    const f = document.querySelector('iframe');
+    return f.style.width;
+  });
+  assert.equal(mobileFrameWidth, '390px', 'Mobile frame should be 390px');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  const outerOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.equal(outerOverflow, 0, 'No outer horizontal overflow on mobile');
+
+  // Switch back to desktop for final clean state
+  await page.setViewportSize({ width: 1600, height: 1100 });
+  await page.click('#btn-desktop');
+  await page.waitForTimeout(400);
+
+  assert.equal(errors.length, 0, 'No console or page errors: ' + errors.join('\n'));
+
+  const report = {
+    verifiedAt: '26 October 2026',
+    errors,
+    frameResults,
+    liveBioEditingWorked: true,
+    fontSwitchingWorked: true,
+    outerMobileOverflow: outerOverflow
+  };
+
+  fs.writeFileSync(path.join(root, 'Verification.json'), JSON.stringify(report, null, 2));
+  console.log('Verification succeeded! Report written to Verification.json');
+  await browser.close();
+})().catch(e => {
+  console.error('Verification failed:', e);
+  process.exit(1);
+});

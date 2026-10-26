@@ -1,20 +1,1202 @@
-// Build one editable comparison from the exact Works snapshots. 26 October 2026, 16:20 Paris.
-const fs=require('fs'),path=require('path');const root=path.dirname(__dirname);
-const snapshots=JSON.parse(fs.readFileSync(path.join(root,'Snapshots.json')));
-const shared='/Users/zenray/.claude/skills/zenray-edit/designs/_shared/fonts';
-const fonts={'GT Ultra':shared+'/GT-Ultra-Regular.woff2','Literata':shared+'/Literata-latin.woff2','GT Standard L':shared+'/GT-Standard-L-Regular.woff2','GT America':path.join(root,'GT-America-Regular.woff2')};
-const fontCss=Object.entries(fonts).map(([name,file])=>`@font-face{font-family:'${name}';src:url(data:font/woff2;base64,${fs.readFileSync(file).toString('base64')}) format('woff2');font-weight:400;font-style:normal;font-display:block}`).join('');
-const initialSettings={presets:[{id:'A',title:'GT Ultra',ui:'GT Standard L'},{id:'B',title:'Literata',ui:'GT Standard L'},{id:'C',title:'GT Standard L',ui:'GT Standard L'}],body:'Literata',number:'GT Ultra',brand:'GT Ultra',titleScale:1};const settingsFile=path.join(root,'TypographySettings.json');if(!fs.existsSync(settingsFile))fs.writeFileSync(settingsFile,JSON.stringify(initialSettings,null,2));const settings=JSON.parse(fs.readFileSync(settingsFile));
-const options=Object.keys(fonts).map(f=>`<option>${f}</option>`).join('');
-const html=`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Works, trois propositions typographiques</title><style>${fontCss}
-:root{--font-title:'GT Ultra';--font-body:'Literata';--font-ui:'GT Standard L';--font-num:'GT Ultra';--paper:#f6f5f2;--ink:#242422}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px var(--font-ui)}header{padding:28px 30px 20px;border-bottom:1px solid #d8d5ce}h1{font:400 34px var(--font-title);margin:0 0 10px}p{font:400 15px/1.6 var(--font-body);margin:0 0 12px}.toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center}button,select{font:400 14px var(--font-ui);border:1px solid #cbc8c0;background:white;border-radius:7px;padding:8px 12px;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#262624;color:white}main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding:22px}article{min-width:0;background:white;border:1px solid #d9d6d0;border-radius:10px;overflow:hidden}article h2{font:400 23px var(--font-title);margin:0 0 12px}.panel{padding:18px;display:grid;gap:12px}.row{display:flex;gap:10px;flex-wrap:wrap}label{display:grid;gap:5px;flex:1;min-width:120px}select{width:100%}.viewport{height:770px;overflow:auto;background:white}iframe{width:1440px;height:6000px;border:0;display:block;transform-origin:top left}.framebox{overflow:hidden}main.focus{display:block;max-width:1600px;margin:auto}main.focus article:not(.selected){display:none}.status{font:12px var(--font-ui);min-height:16px;color:#595950}textarea{width:100%;height:85px;font:12px monospace}.hidden{display:none}@media(max-width:850px){main{grid-template-columns:1fr;padding:12px}header{padding:20px}h1{font-size:28px}}
-</style><header><h1>Works, trois propositions typographiques</h1><p>Même page, mêmes textes et mêmes images. Seules les polices changent. Corps en Literata, nombres en GT Ultra.</p><div class="toolbar"><button id="compare" aria-pressed="true">Comparer les trois</button><button id="desktop" aria-pressed="true">Bureau</button><button id="mobile" aria-pressed="false">Mobile</button><button id="reset">Réinitialiser</button><button id="copy">Copier les valeurs pour le prompt</button></div><p class="status" id="message" aria-live="polite">Les menus de chaque proposition permettent aussi de tester GT America.</p><textarea id="output" class="hidden" aria-label="Valeurs à copier"></textarea></header><main>${settings.presets.map((p,i)=>`<article data-index="${i}"><div class="panel"><h2>${p.id}. ${p.title}</h2><div class="row"><label>Titres<select data-key="title">${options}</select></label><label>Nom ZenRay<select data-key="brand">${options}</select></label></div><div class="row"><label>Interface<select data-key="ui"><option>GT Standard L</option><option>GT America</option></select></label><label>Taille des titres <input data-key="scale" type="range" min="85" max="115" value="100" aria-label="Taille des titres"></label></div><button data-open>Voir en pleine largeur</button><div class="status" data-loaded></div></div><div class="viewport"><div class="framebox"><iframe title="Proposition ${p.id}, Works" sandbox="allow-same-origin"></iframe></div></div></article>`).join('')}</main><script>
-const SNAPSHOTS=${JSON.stringify(snapshots).replace(/</g,'\\u003c')};const FONT_CSS=${JSON.stringify(fontCss)};const DEFAULTS=${JSON.stringify(settings)};let mode='desktop';const state=DEFAULTS.presets.map(p=>({...p,brand:DEFAULTS.brand,scale:100}));
-function documentFor(width){return '<!doctype html><html><head><meta charset="utf-8"><style>'+FONT_CSS+'html,body{margin:0;background:#fff}*{font-family:var(--font-ui)!important;font-weight:400!important;font-synthesis:none} [data-role=body],[data-role=body] *{font-family:var(--font-body)!important} [data-role=title],[data-role=title] *{font-family:var(--font-title)!important} [data-brand],[data-brand] *{font-family:var(--font-brand)!important} .num{font-family:var(--font-num)!important} [data-hover-card]:hover [data-hover-info]{opacity:1!important;transform:none!important}body{overflow-x:hidden}</style></head><body>'+SNAPSHOTS[width].html+'</body></html>'}
-function apply(i){const card=document.querySelectorAll('article')[i],doc=card.querySelector('iframe').contentDocument;if(!doc?.body)return;const s=state[i],r=doc.documentElement;Object.entries({'--font-title':s.title,'--font-brand':s.brand,'--font-body':DEFAULTS.body,'--font-ui':s.ui,'--font-num':DEFAULTS.number}).forEach(([k,v])=>r.style.setProperty(k,'"'+v+'"'));doc.querySelectorAll('[data-role=title]').forEach(e=>{if(!e.dataset.baseSize)e.dataset.baseSize=parseFloat(e.style.fontSize)||20;e.style.fontSize=(e.dataset.baseSize*s.scale/100)+'px'});doc.fonts.ready.then(()=>{card.querySelector('[data-loaded]').textContent=[s.title,s.ui,DEFAULTS.body,DEFAULTS.number].every(f=>doc.fonts.check('16px "'+f+'"'))?'Polices chargées':'Chargement des polices…'});}
-function layout(){document.querySelectorAll('article').forEach(card=>{const frame=card.querySelector('iframe'),width=mode==='mobile'?390:1440;const scale=Math.min(1,card.clientWidth/width);frame.style.width=width+'px';frame.style.transform='scale('+scale+')';const h=frame.contentDocument?.body?.scrollHeight||6000;frame.style.height=h+'px';card.querySelector('.framebox').style.height=h*scale+'px';card.querySelector('.viewport').style.height=document.querySelector('main').classList.contains('focus')?'80vh':'770px';})}
-function load(){document.querySelectorAll('article').forEach((card,i)=>{const frame=card.querySelector('iframe');frame.onload=()=>{const doc=frame.contentDocument;doc.querySelectorAll('[data-role]').forEach(e=>{if(e.textContent.trim()==='ZenRay')e.dataset.brand=''});const walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);const nodes=[];while(walker.nextNode())if(/\\d/.test(walker.currentNode.textContent)&&!walker.currentNode.parentElement.closest('svg,script,style'))nodes.push(walker.currentNode);for(const n of nodes){const parts=n.textContent.split(/(\\d+(?:[.,]\\d+)?)/g),frag=doc.createDocumentFragment();parts.forEach((part,j)=>{if(j%2){const span=doc.createElement('span');span.className='num';span.textContent=part;frag.append(span)}else frag.append(doc.createTextNode(part))});n.replaceWith(frag)}apply(i);setTimeout(layout,100)};frame.srcdoc=documentFor(mode==='mobile'?390:1440);});}
-document.querySelectorAll('article').forEach((card,i)=>{card.querySelectorAll('select').forEach(el=>{el.value=state[i][el.dataset.key];el.onchange=()=>{state[i][el.dataset.key]=el.value;apply(i)}});card.querySelector('input').oninput=e=>{state[i].scale=+e.target.value;apply(i);layout()};card.querySelector('[data-open]').onclick=()=>{document.querySelector('main').classList.add('focus');document.querySelectorAll('article').forEach(c=>c.classList.toggle('selected',c===card));layout()}});
-document.querySelector('#compare').onclick=()=>{document.querySelector('main').classList.remove('focus');layout()};for(const type of ['desktop','mobile'])document.querySelector('#'+type).onclick=()=>{mode=type;for(const t of ['desktop','mobile'])document.querySelector('#'+t).setAttribute('aria-pressed',t===mode);load()};document.querySelector('#reset').onclick=()=>location.reload();document.querySelector('#copy').onclick=async()=>{const text=JSON.stringify({body:DEFAULTS.body,numbers:DEFAULTS.number,propositions:state},null,2);try{await navigator.clipboard.writeText(text);document.querySelector('#message').textContent='Valeurs copiées.'}catch{const out=document.querySelector('#output');out.classList.remove('hidden');out.value=text;out.select();document.querySelector('#message').textContent='Valeurs prêtes à copier.'}};new ResizeObserver(layout).observe(document.querySelector('main'));load();
-</script></html>`;
-fs.writeFileSync(path.join(root,'index.html'),html);console.log('Built',Buffer.byteLength(html),'bytes');
+// Build interactive parametric comparison with focus views and full slider controls. 26 October 2026, Paris.
+const fs = require('fs');
+const path = require('path');
+const root = path.dirname(__dirname);
+
+const snapshots = JSON.parse(fs.readFileSync(path.join(root, 'Snapshots.json'), 'utf8'));
+const shared = '/Users/zenray/.claude/skills/zenray-edit/designs/_shared/fonts';
+
+const fonts = {
+  'GT Ultra': path.join(shared, 'GT-Ultra-Regular.woff2'),
+  'Literata': path.join(shared, 'Literata-latin.woff2'),
+  'GT Standard L': path.join(shared, 'GT-Standard-L-Regular.woff2'),
+  'GT Standard L Bold': path.join(shared, 'GT-Standard-L-Bold.woff2'),
+  'GT America': path.join(root, 'GT-America-Regular.woff2'),
+  'Inter': path.join(shared, 'InterVariable-latin.woff2'),
+  'Anthropic Serif': path.join(shared, 'AnthropicSerif-Romans-latin-400.woff2'),
+  'GT Sectra': path.join(shared, 'GT-Sectra-LCGV-Regular-latin.woff2')
+};
+
+const fontCss = Object.entries(fonts).map(([name, file]) => {
+  const buf = fs.readFileSync(file);
+  const weight = name.includes('Bold') ? 700 : 400;
+  return `@font-face {
+  font-family: '${name}';
+  src: url(data:font/woff2;base64,${buf.toString('base64')}) format('woff2');
+  font-weight: ${weight};
+  font-style: normal;
+  font-display: block;
+}`;
+}).join('\n');
+
+const fontFamilies = Object.keys(fonts);
+
+const defaultBioText = "Hi, I'm Matthieu (@zenray), a 3D Technical Artist specializing in Houdini and Unreal Engine. I design procedural pipelines and custom tools that help studios scale production, automate workflows, and ship environments at a high visual standard. From procedural modeling to code pipeline architecture, I build the tools your team needs. Let's talk!";
+
+const initialSettings = {
+  presets: [
+    {
+      id: 'A',
+      name: 'GT Ultra Focus',
+      description: 'Titres GT Ultra 400, Corps Literata 400, UI GT Standard L, Nombres GT Ultra 400 (Défaut ZenRay Octobre 2026)',
+      titleFont: 'GT Ultra',
+      titleScale: 100,
+      titleLh: 1.15,
+      titleLs: -0.02,
+      titleWeight: '400',
+
+      bioFont: 'Literata',
+      bioScale: 100,
+      bioLh: 1.65,
+      bioLs: 0.00,
+      bioWeight: '400',
+      bioText: defaultBioText,
+
+      bodyFont: 'Literata',
+      bodyScale: 100,
+      bodyLh: 1.65,
+      bodyLs: 0.00,
+      bodyWeight: '400',
+
+      subFont: 'GT Standard L',
+      subScale: 100,
+      subLh: 1.40,
+      subLs: 0.02,
+      subWeight: '400',
+
+      uiFont: 'GT Standard L',
+      uiScale: 100,
+      uiLh: 1.30,
+      uiLs: 0.01,
+      uiWeight: '400',
+
+      brandFont: 'GT Ultra',
+      brandScale: 100,
+      brandLs: -0.02,
+      brandWeight: '400',
+
+      numFont: 'GT Ultra',
+      numScale: 100,
+      numLs: 0.00
+    },
+    {
+      id: 'B',
+      name: 'Literata Focus',
+      description: 'Titres Literata 400, Corps Literata 400, UI GT Standard L, Nombres GT Ultra 400 (Style éditorial)',
+      titleFont: 'Literata',
+      titleScale: 105,
+      titleLh: 1.20,
+      titleLs: -0.01,
+      titleWeight: '400',
+
+      bioFont: 'Literata',
+      bioScale: 100,
+      bioLh: 1.65,
+      bioLs: 0.00,
+      bioWeight: '400',
+      bioText: defaultBioText,
+
+      bodyFont: 'Literata',
+      bodyScale: 100,
+      bodyLh: 1.65,
+      bodyLs: 0.00,
+      bodyWeight: '400',
+
+      subFont: 'GT Standard L',
+      subScale: 100,
+      subLh: 1.40,
+      subLs: 0.02,
+      subWeight: '400',
+
+      uiFont: 'GT Standard L',
+      uiScale: 100,
+      uiLh: 1.30,
+      uiLs: 0.01,
+      uiWeight: '400',
+
+      brandFont: 'Literata',
+      brandScale: 100,
+      brandLs: -0.01,
+      brandWeight: '400',
+
+      numFont: 'GT Ultra',
+      numScale: 100,
+      numLs: 0.00
+    },
+    {
+      id: 'C',
+      name: 'GT Standard L Focus',
+      description: 'Titres GT Standard L 400, Corps GT Standard L 400, UI GT Standard L, Nombres GT Ultra 400 (Style architectural épuré)',
+      titleFont: 'GT Standard L',
+      titleScale: 100,
+      titleLh: 1.15,
+      titleLs: -0.01,
+      titleWeight: '400',
+
+      bioFont: 'GT Standard L',
+      bioScale: 100,
+      bioLh: 1.60,
+      bioLs: 0.00,
+      bioWeight: '400',
+      bioText: defaultBioText,
+
+      bodyFont: 'GT Standard L',
+      bodyScale: 100,
+      bodyLh: 1.60,
+      bodyLs: 0.00,
+      bodyWeight: '400',
+
+      subFont: 'GT Standard L',
+      subScale: 95,
+      subLh: 1.35,
+      subLs: 0.03,
+      subWeight: '500',
+
+      uiFont: 'GT Standard L',
+      uiScale: 100,
+      uiLh: 1.30,
+      uiLs: 0.01,
+      uiWeight: '400',
+
+      brandFont: 'GT Standard L',
+      brandScale: 100,
+      brandLs: -0.01,
+      brandWeight: '400',
+
+      numFont: 'GT Ultra',
+      numScale: 100,
+      numLs: 0.00
+    }
+  ]
+};
+
+const settingsFile = path.join(root, 'TypographySettings.json');
+fs.writeFileSync(settingsFile, JSON.stringify(initialSettings, null, 2));
+
+function fontSelectOptions(selected) {
+  return fontFamilies.map(f => `<option value="${f}" ${f === selected ? 'selected' : ''}>${f}</option>`).join('');
+}
+
+const html = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZenRay Website : Studio Paramétrique Typographique</title>
+<style>
+${fontCss}
+
+:root {
+  --bg-app: #f4f3ef;
+  --bg-card: #ffffff;
+  --border-app: #d8d4cb;
+  --border-focus: #1d1d1f;
+  --text-main: #1d1d1f;
+  --text-muted: #6e6e73;
+  --accent: #0071e3;
+  --font-ui: 'GT Standard L', -apple-system, sans-serif;
+  --font-title: 'GT Ultra', sans-serif;
+  --font-num: 'GT Ultra', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-app);
+  padding: 20px 28px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-family: var(--font-title);
+  font-size: 26px;
+  font-weight: 400;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tab-btn {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-app);
+  background: #ffffff;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-btn:hover {
+  background: #f8f8f6;
+  border-color: #bcbaa0;
+}
+
+.tab-btn[aria-pressed="true"] {
+  background: #1d1d1f;
+  color: #ffffff;
+  border-color: #1d1d1f;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #ebe8e1;
+}
+
+.btn-action {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-app);
+  background: #ffffff;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-action:hover {
+  background: #f0eee8;
+}
+
+.btn-action.primary {
+  background: #0071e3;
+  color: #ffffff;
+  border-color: #0071e3;
+}
+.btn-action.primary:hover {
+  background: #005bb5;
+}
+
+.status-pill {
+  font-size: 12px;
+  color: #2e7d32;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Master Layout */
+main {
+  padding: 20px 24px 60px;
+}
+
+main.mode-compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+main.mode-focus {
+  display: block;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+main.mode-focus article:not(.is-active) {
+  display: none;
+}
+
+article.view-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-app);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+}
+
+.card-header {
+  padding: 16px 20px;
+  background: #faf9f6;
+  border-bottom: 1px solid var(--border-app);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  font-family: var(--font-title);
+  font-size: 18px;
+  margin: 0;
+}
+
+.card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+/* Control Panel */
+.hda-panel {
+  padding: 16px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-app);
+  display: grid;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.control-section {
+  background: #fbfbf9;
+  border: 1px solid #ebe7df;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1d1d1f;
+  letter-spacing: -0.01em;
+}
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+}
+
+.val-badge {
+  font-family: var(--font-num);
+  font-size: 11px;
+  color: #1d1d1f;
+  font-weight: 500;
+}
+
+select, input[type="text"], textarea {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid #cbc7be;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text-main);
+  outline: none;
+}
+
+select:focus, input[type="text"]:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,113,227,0.15);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: #1d1d1f;
+  cursor: pointer;
+  height: 6px;
+}
+
+textarea.bio-input {
+  width: 100%;
+  min-height: 75px;
+  resize: vertical;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+/* Viewport & Iframe */
+.viewport-container {
+  height: 820px;
+  overflow: auto;
+  background: #ffffff;
+  position: relative;
+}
+
+main.mode-focus .viewport-container {
+  height: 86vh;
+}
+
+.frame-wrapper {
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+iframe {
+  border: 0;
+  display: block;
+  transform-origin: top left;
+  background: #ffffff;
+}
+
+/* Modal / Textarea copy output */
+.copy-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.copy-modal.open { display: flex; }
+.modal-box {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 650px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+.modal-box h3 { margin: 0 0 12px; font-family: var(--font-title); font-size: 20px; }
+.modal-box textarea { width: 100%; height: 240px; font-family: monospace; font-size: 12px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+@media (max-width: 1024px) {
+  main.mode-compare {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div>
+      <h1>ZenRay Website : Studio Paramétrique Typographique</h1>
+      <p class="subtitle">Focus sur GT Ultra, Literata et GT Standard L avec contrôle HDA de tous les éléments textuels</p>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn" id="tab-compare" aria-pressed="false">Comparer les 3 vues</button>
+      <button class="tab-btn" id="tab-A" aria-pressed="true">Vue A : GT Ultra</button>
+      <button class="tab-btn" id="tab-B" aria-pressed="false">Vue B : Literata</button>
+      <button class="tab-btn" id="tab-C" aria-pressed="false">Vue C : GT Standard L</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="tab-btn" id="btn-desktop" aria-pressed="true">Bureau (1440px)</button>
+    <button class="tab-btn" id="btn-mobile" aria-pressed="false">Mobile (390px)</button>
+    <button class="btn-action primary" id="btn-copy-css">Copier CSS :root</button>
+    <button class="btn-action" id="btn-copy-json">Copier JSON</button>
+    <button class="btn-action" id="btn-reset">Réinitialiser</button>
+    <span class="status-pill" id="status-text">Polices prêtes</span>
+  </div>
+</header>
+
+<main class="mode-focus" id="main-view">
+${initialSettings.presets.map((p, i) => `
+  <article class="view-card ${i === 0 ? 'is-active' : ''}" data-index="${i}">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">${p.id}. ${p.name}</h2>
+        <p class="card-desc">${p.description}</p>
+      </div>
+      <button class="btn-action btn-expand" data-idx="${i}">Focus cette vue</button>
+    </div>
+
+    <!-- HDA Control Panel -->
+    <div class="hda-panel">
+
+      <!-- Section 1 : Titres H1 / H2 / Projets -->
+      <div class="control-section">
+        <div class="section-head">
+          <span>1. Titres (H1, H2, Noms de projets)</span>
+          <span class="val-badge" data-bind="titleSummary">${p.titleFont} • ${p.titleScale}%</span>
+        </div>
+        <div class="section-grid">
+          <div class="field">
+            <label>Police</label>
+            <select data-field="titleFont">${fontSelectOptions(p.titleFont)}</select>
+          </div>
+          <div class="field">
+            <label>Échelle <span class="val-badge" data-val="titleScale">${p.titleScale}%</span></label>
+            <input type="range" data-field="titleScale" min="70" max="150" value="${p.titleScale}">
+          </div>
+          <div class="field">
+            <label>Interligne <span class="val-badge" data-val="titleLh">${p.titleLh}</span></label>
+            <input type="range" data-field="titleLh" min="0.90" max="1.70" step="0.05" value="${p.titleLh}">
+          </div>
+          <div class="field">
+            <label>Espacement <span class="val-badge" data-val="titleLs">${p.titleLs}em</span></label>
+            <input type="range" data-field="titleLs" min="-0.06" max="0.10" step="0.01" value="${p.titleLs}">
+          </div>
+          <div class="field">
+            <label>Graisse</label>
+            <select data-field="titleWeight">
+              <option value="300" ${p.titleWeight==='300'?'selected':''}>Light 300</option>
+              <option value="400" ${p.titleWeight==='400'?'selected':''}>Regular 400</option>
+              <option value="500" ${p.titleWeight==='500'?'selected':''}>Medium 500</option>
+              <option value="600" ${p.titleWeight==='600'?'selected':''}>SemiBold 600</option>
+              <option value="700" ${p.titleWeight==='700'?'selected':''}>Bold 700</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2 : Bio & Accroche Matthieu -->
+      <div class="control-section">
+        <div class="section-head">
+          <span>2. Bio & Accroche Matthieu (@zenray)</span>
+          <span class="val-badge" data-bind="bioSummary">${p.bioFont} • ${p.bioScale}%</span>
+        </div>
+        <div class="section-grid">
+          <div class="field">
+            <label>Police</label>
+            <select data-field="bioFont">${fontSelectOptions(p.bioFont)}</select>
+          </div>
+          <div class="field">
+            <label>Échelle <span class="val-badge" data-val="bioScale">${p.bioScale}%</span></label>
+            <input type="range" data-field="bioScale" min="70" max="150" value="${p.bioScale}">
+          </div>
+          <div class="field">
+            <label>Interligne <span class="val-badge" data-val="bioLh">${p.bioLh}</span></label>
+            <input type="range" data-field="bioLh" min="1.10" max="2.20" step="0.05" value="${p.bioLh}">
+          </div>
+          <div class="field">
+            <label>Espacement <span class="val-badge" data-val="bioLs">${p.bioLs}em</span></label>
+            <input type="range" data-field="bioLs" min="-0.04" max="0.08" step="0.01" value="${p.bioLs}">
+          </div>
+          <div class="field">
+            <label>Graisse</label>
+            <select data-field="bioWeight">
+              <option value="300" ${p.bioWeight==='300'?'selected':''}>Light 300</option>
+              <option value="400" ${p.bioWeight==='400'?'selected':''}>Regular 400</option>
+              <option value="500" ${p.bioWeight==='500'?'selected':''}>Medium 500</option>
+              <option value="600" ${p.bioWeight==='600'?'selected':''}>SemiBold 600</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label>Texte d'accroche éditable en direct</label>
+          <textarea class="bio-input" data-field="bioText">${p.bioText}</textarea>
+        </div>
+      </div>
+
+      <!-- Section 3 : Corps de texte (Descriptions & Paragraphes) -->
+      <div class="control-section">
+        <div class="section-head">
+          <span>3. Corps de texte (Descriptions des projets & Articles)</span>
+          <span class="val-badge" data-bind="bodySummary">${p.bodyFont} • ${p.bodyScale}%</span>
+        </div>
+        <div class="section-grid">
+          <div class="field">
+            <label>Police</label>
+            <select data-field="bodyFont">${fontSelectOptions(p.bodyFont)}</select>
+          </div>
+          <div class="field">
+            <label>Échelle <span class="val-badge" data-val="bodyScale">${p.bodyScale}%</span></label>
+            <input type="range" data-field="bodyScale" min="70" max="150" value="${p.bodyScale}">
+          </div>
+          <div class="field">
+            <label>Interligne <span class="val-badge" data-val="bodyLh">${p.bodyLh}</span></label>
+            <input type="range" data-field="bodyLh" min="1.10" max="2.20" step="0.05" value="${p.bodyLh}">
+          </div>
+          <div class="field">
+            <label>Espacement <span class="val-badge" data-val="bodyLs">${p.bodyLs}em</span></label>
+            <input type="range" data-field="bodyLs" min="-0.04" max="0.08" step="0.01" value="${p.bodyLs}">
+          </div>
+          <div class="field">
+            <label>Graisse</label>
+            <select data-field="bodyWeight">
+              <option value="300" ${p.bodyWeight==='300'?'selected':''}>Light 300</option>
+              <option value="400" ${p.bodyWeight==='400'?'selected':''}>Regular 400</option>
+              <option value="500" ${p.bodyWeight==='500'?'selected':''}>Medium 500</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4 : Sous-titres & Badges -->
+      <div class="control-section">
+        <div class="section-head">
+          <span>4. Sous-titres, Badges & Métadonnées</span>
+          <span class="val-badge" data-bind="subSummary">${p.subFont} • ${p.subScale}%</span>
+        </div>
+        <div class="section-grid">
+          <div class="field">
+            <label>Police</label>
+            <select data-field="subFont">${fontSelectOptions(p.subFont)}</select>
+          </div>
+          <div class="field">
+            <label>Échelle <span class="val-badge" data-val="subScale">${p.subScale}%</span></label>
+            <input type="range" data-field="subScale" min="70" max="140" value="${p.subScale}">
+          </div>
+          <div class="field">
+            <label>Interligne <span class="val-badge" data-val="subLh">${p.subLh}</span></label>
+            <input type="range" data-field="subLh" min="1.00" max="1.80" step="0.05" value="${p.subLh}">
+          </div>
+          <div class="field">
+            <label>Espacement <span class="val-badge" data-val="subLs">${p.subLs}em</span></label>
+            <input type="range" data-field="subLs" min="-0.03" max="0.12" step="0.01" value="${p.subLs}">
+          </div>
+          <div class="field">
+            <label>Graisse</label>
+            <select data-field="subWeight">
+              <option value="300" ${p.subWeight==='300'?'selected':''}>Light 300</option>
+              <option value="400" ${p.subWeight==='400'?'selected':''}>Regular 400</option>
+              <option value="500" ${p.subWeight==='500'?'selected':''}>Medium 500</option>
+              <option value="600" ${p.subWeight==='600'?'selected':''}>SemiBold 600</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5 : Interface & Navigation -->
+      <div class="control-section">
+        <div class="section-head">
+          <span>5. Interface & Navigation (Boutons, Menus, Liens)</span>
+          <span class="val-badge" data-bind="uiSummary">${p.uiFont} • ${p.uiScale}%</span>
+        </div>
+        <div class="section-grid">
+          <div class="field">
+            <label>Police</label>
+            <select data-field="uiFont">${fontSelectOptions(p.uiFont)}</select>
+          </div>
+          <div class="field">
+            <label>Échelle <span class="val-badge" data-val="uiScale">${p.uiScale}%</span></label>
+            <input type="range" data-field="uiScale" min="70" max="140" value="${p.uiScale}">
+          </div>
+          <div class="field">
+            <label>Interligne <span class="val-badge" data-val="uiLh">${p.uiLh}</span></label>
+            <input type="range" data-field="uiLh" min="1.00" max="1.80" step="0.05" value="${p.uiLh}">
+          </div>
+          <div class="field">
+            <label>Espacement <span class="val-badge" data-val="uiLs">${p.uiLs}em</span></label>
+            <input type="range" data-field="uiLs" min="-0.03" max="0.12" step="0.01" value="${p.uiLs}">
+          </div>
+          <div class="field">
+            <label>Graisse</label>
+            <select data-field="uiWeight">
+              <option value="300" ${p.uiWeight==='300'?'selected':''}>Light 300</option>
+              <option value="400" ${p.uiWeight==='400'?'selected':''}>Regular 400</option>
+              <option value="500" ${p.uiWeight==='500'?'selected':''}>Medium 500</option>
+              <option value="600" ${p.uiWeight==='600'?'selected':''}>SemiBold 600</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6 : Marque ZenRay & Nombres -->
+      <div class="control-section">
+        <div class="section-head">
+          <span>6. Marque "ZenRay" & Nombres (Règle GT Ultra 400)</span>
+          <span class="val-badge">${p.brandFont} / ${p.numFont}</span>
+        </div>
+        <div class="section-grid">
+          <div class="field">
+            <label>Marque "ZenRay"</label>
+            <select data-field="brandFont">${fontSelectOptions(p.brandFont)}</select>
+          </div>
+          <div class="field">
+            <label>Taille Marque <span class="val-badge" data-val="brandScale">${p.brandScale}%</span></label>
+            <input type="range" data-field="brandScale" min="80" max="140" value="${p.brandScale}">
+          </div>
+          <div class="field">
+            <label>Espacement Marque <span class="val-badge" data-val="brandLs">${p.brandLs}em</span></label>
+            <input type="range" data-field="brandLs" min="-0.05" max="0.12" step="0.01" value="${p.brandLs}">
+          </div>
+          <div class="field">
+            <label>Police Nombres</label>
+            <select data-field="numFont">${fontSelectOptions(p.numFont)}</select>
+          </div>
+          <div class="field">
+            <label>Taille Nombres <span class="val-badge" data-val="numScale">${p.numScale}%</span></label>
+            <input type="range" data-field="numScale" min="80" max="140" value="${p.numScale}">
+          </div>
+          <div class="field">
+            <label>Espacement Nombres <span class="val-badge" data-val="numLs">${p.numLs}em</span></label>
+            <input type="range" data-field="numLs" min="-0.05" max="0.10" step="0.01" value="${p.numLs}">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live Preview Viewport -->
+    <div class="viewport-container">
+      <div class="frame-wrapper">
+        <iframe title="Aperçu ${p.id}" sandbox="allow-same-origin allow-scripts"></iframe>
+      </div>
+    </div>
+  </article>
+`).join('')}
+</main>
+
+<div class="copy-modal" id="modal">
+  <div class="modal-box">
+    <h3 id="modal-title">Valeurs générées</h3>
+    <textarea id="modal-text" readonly></textarea>
+    <div class="modal-footer">
+      <button class="btn-action primary" id="modal-copy-btn">Copier dans le presse-papier</button>
+      <button class="btn-action" id="modal-close-btn">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SNAPSHOTS = ${JSON.stringify(snapshots).replace(/</g, '\\u003c')};
+const FONT_CSS = ${JSON.stringify(fontCss)};
+const INITIAL_STATE = ${JSON.stringify(initialSettings.presets)};
+let state = JSON.parse(JSON.stringify(INITIAL_STATE));
+let activeViewIndex = 0; // 0: A, 1: B, 2: C, -1: compare
+let deviceMode = 'desktop'; // desktop (1440) or mobile (390)
+
+function buildIframeDocument(width) {
+  return '<!doctype html><html><head><meta charset="utf-8"><style>' +
+    FONT_CSS +
+    'html, body { margin: 0; padding: 0; background: #ffffff; }' +
+    '* { font-family: var(--font-ui) !important; font-synthesis: none; }' +
+    '[data-role="title"], [data-role="title"] * { ' +
+    '  font-family: var(--font-title) !important; ' +
+    '  font-weight: var(--weight-title) !important; ' +
+    '  letter-spacing: var(--ls-title) !important; ' +
+    '  line-height: var(--lh-title) !important; ' +
+    '}' +
+    '[data-role="bio"], [data-role="bio"] * { ' +
+    '  font-family: var(--font-bio) !important; ' +
+    '  font-weight: var(--weight-bio) !important; ' +
+    '  letter-spacing: var(--ls-bio) !important; ' +
+    '  line-height: var(--lh-bio) !important; ' +
+    '}' +
+    '[data-role="body"]:not([data-role="bio"]), [data-role="body"]:not([data-role="bio"]) * { ' +
+    '  font-family: var(--font-body) !important; ' +
+    '  font-weight: var(--weight-body) !important; ' +
+    '  letter-spacing: var(--ls-body) !important; ' +
+    '  line-height: var(--lh-body) !important; ' +
+    '}' +
+    '[data-role="subtitle"], [data-role="subtitle"] * { ' +
+    '  font-family: var(--font-sub) !important; ' +
+    '  font-weight: var(--weight-sub) !important; ' +
+    '  letter-spacing: var(--ls-sub) !important; ' +
+    '  line-height: var(--lh-sub) !important; ' +
+    '}' +
+    '[data-role="ui"], [data-role="ui"] * { ' +
+    '  font-family: var(--font-ui) !important; ' +
+    '  font-weight: var(--weight-ui) !important; ' +
+    '  letter-spacing: var(--ls-ui) !important; ' +
+    '  line-height: var(--lh-ui) !important; ' +
+    '}' +
+    '[data-brand], [data-brand] * { ' +
+    '  font-family: var(--font-brand) !important; ' +
+    '  letter-spacing: var(--ls-brand) !important; ' +
+    '}' +
+    '.num { ' +
+    '  font-family: var(--font-num) !important; ' +
+    '  letter-spacing: var(--ls-num) !important; ' +
+    '}' +
+    '[data-hover-card]:hover [data-hover-info] { opacity: 1 !important; transform: none !important; }' +
+    'body { overflow-x: hidden; }' +
+    '</style></head><body>' +
+    SNAPSHOTS[width].html +
+    '</body></html>';
+}
+
+function applyStylesToIframe(i) {
+  const card = document.querySelectorAll('article.view-card')[i];
+  if (!card) return;
+  const frame = card.querySelector('iframe');
+  const doc = frame.contentDocument;
+  if (!doc || !doc.body) return;
+
+  const s = state[i];
+  const r = doc.documentElement;
+
+  // Set CSS Variables
+  r.style.setProperty('--font-title', '"' + s.titleFont + '"');
+  r.style.setProperty('--weight-title', s.titleWeight);
+  r.style.setProperty('--lh-title', s.titleLh);
+  r.style.setProperty('--ls-title', s.titleLs + 'em');
+
+  r.style.setProperty('--font-bio', '"' + s.bioFont + '"');
+  r.style.setProperty('--weight-bio', s.bioWeight);
+  r.style.setProperty('--lh-bio', s.bioLh);
+  r.style.setProperty('--ls-bio', s.bioLs + 'em');
+
+  r.style.setProperty('--font-body', '"' + s.bodyFont + '"');
+  r.style.setProperty('--weight-body', s.bodyWeight);
+  r.style.setProperty('--lh-body', s.bodyLh);
+  r.style.setProperty('--ls-body', s.bodyLs + 'em');
+
+  r.style.setProperty('--font-sub', '"' + s.subFont + '"');
+  r.style.setProperty('--weight-sub', s.subWeight);
+  r.style.setProperty('--lh-sub', s.subLh);
+  r.style.setProperty('--ls-sub', s.subLs + 'em');
+
+  r.style.setProperty('--font-ui', '"' + s.uiFont + '"');
+  r.style.setProperty('--weight-ui', s.uiWeight);
+  r.style.setProperty('--lh-ui', s.uiLh);
+  r.style.setProperty('--ls-ui', s.uiLs + 'em');
+
+  r.style.setProperty('--font-brand', '"' + s.brandFont + '"');
+  r.style.setProperty('--ls-brand', s.brandLs + 'em');
+
+  r.style.setProperty('--font-num', '"' + s.numFont + '"');
+  r.style.setProperty('--ls-num', s.numLs + 'em');
+
+  // Direct scale overrides
+  doc.querySelectorAll('[data-role="title"]').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 20) * (s.titleScale / 100)) + 'px';
+  });
+
+  doc.querySelectorAll('[data-role="bio"]').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 16) * (s.bioScale / 100)) + 'px';
+    if (s.bioText !== undefined && e.textContent !== s.bioText) {
+      e.textContent = s.bioText;
+    }
+  });
+
+  doc.querySelectorAll('[data-role="body"]:not([data-role="bio"])').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 15) * (s.bodyScale / 100)) + 'px';
+  });
+
+  doc.querySelectorAll('[data-role="subtitle"]').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 13) * (s.subScale / 100)) + 'px';
+  });
+
+  doc.querySelectorAll('[data-role="ui"]').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 14) * (s.uiScale / 100)) + 'px';
+  });
+
+  doc.querySelectorAll('[data-brand]').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 24) * (s.brandScale / 100)) + 'px';
+  });
+
+  doc.querySelectorAll('.num').forEach(e => {
+    e.style.fontSize = (parseFloat(e.dataset.baseSize || 14) * (s.numScale / 100)) + 'px';
+  });
+}
+
+function updateLayout() {
+  const width = deviceMode === 'mobile' ? 390 : 1440;
+  document.querySelectorAll('article.view-card').forEach((card, i) => {
+    const frame = card.querySelector('iframe');
+    const wrapper = card.querySelector('.frame-wrapper');
+    const container = card.querySelector('.viewport-container');
+    const availableWidth = card.clientWidth;
+    const scale = Math.min(1, availableWidth / width);
+
+    frame.style.width = width + 'px';
+    frame.style.transform = 'scale(' + scale + ')';
+
+    const h = frame.contentDocument?.body?.scrollHeight || 6500;
+    frame.style.height = h + 'px';
+    wrapper.style.height = (h * scale) + 'px';
+    wrapper.style.width = (width * scale) + 'px';
+  });
+}
+
+function loadFrames() {
+  const width = deviceMode === 'mobile' ? 390 : 1440;
+  document.querySelectorAll('article.view-card').forEach((card, i) => {
+    const frame = card.querySelector('iframe');
+    frame.onload = () => {
+      const doc = frame.contentDocument;
+
+      // 1. Tag Brand
+      doc.querySelectorAll('[data-role]').forEach(e => {
+        if (e.textContent.trim() === 'ZenRay') {
+          e.dataset.brand = '';
+        }
+      });
+
+      // 2. Tag Bio specifically
+      doc.querySelectorAll('p').forEach(p => {
+        if (p.textContent.includes("Hi, I'm Matthieu")) {
+          p.dataset.role = 'bio';
+        } else if (p.textContent.includes("Houdini Generator")) {
+          p.dataset.role = 'subtitle';
+        }
+      });
+
+      // 3. Tag Subtitles & Tags
+      doc.querySelectorAll('[data-role="ui"]').forEach(e => {
+        const text = e.textContent.trim();
+        if (/^(Louisiana Bayou|Texturing|3D|Houdini|Unreal Engine|Copernicus|Procedural)$/i.test(text)) {
+          e.dataset.role = 'subtitle';
+        }
+      });
+
+      // 4. Wrap Numbers in span.num
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (/\\d/.test(node.textContent) && !node.parentElement.closest('svg, script, style')) {
+          textNodes.push(node);
+        }
+      }
+      for (const node of textNodes) {
+        const parts = node.textContent.split(/(\\d+(?:[.,]\\d+)?)/g);
+        const frag = doc.createDocumentFragment();
+        parts.forEach((part, j) => {
+          if (j % 2) {
+            const span = doc.createElement('span');
+            span.className = 'num';
+            span.textContent = part;
+            frag.append(span);
+          } else {
+            frag.append(doc.createTextNode(part));
+          }
+        });
+        node.replaceWith(frag);
+      }
+
+      // 5. Compute base sizes
+      doc.querySelectorAll('[data-role], [data-brand], .num').forEach(el => {
+        if (!el.dataset.baseSize) {
+          const comp = doc.defaultView.getComputedStyle(el);
+          el.dataset.baseSize = parseFloat(comp.fontSize) || 16;
+        }
+      });
+
+      applyStylesToIframe(i);
+      setTimeout(updateLayout, 80);
+    };
+    frame.srcdoc = buildIframeDocument(width);
+  });
+}
+
+function bindControls() {
+  document.querySelectorAll('article.view-card').forEach((card, i) => {
+    // Selects & Inputs
+    card.querySelectorAll('[data-field]').forEach(input => {
+      const field = input.dataset.field;
+
+      const handleChange = () => {
+        let val = input.value;
+        if (input.type === 'range') {
+          val = input.step && input.step.includes('.') ? parseFloat(val) : parseInt(val, 10);
+        }
+        state[i][field] = val;
+
+        // Update badge if present
+        const badge = card.querySelector('[data-val="' + field + '"]');
+        if (badge) {
+          if (field.endsWith('Ls')) badge.textContent = val + 'em';
+          else if (field.endsWith('Scale')) badge.textContent = val + '%';
+          else badge.textContent = val;
+        }
+
+        // Summary badges
+        const titleSum = card.querySelector('[data-bind="titleSummary"]');
+        if (titleSum) titleSum.textContent = state[i].titleFont + ' • ' + state[i].titleScale + '%';
+
+        const bioSum = card.querySelector('[data-bind="bioSummary"]');
+        if (bioSum) bioSum.textContent = state[i].bioFont + ' • ' + state[i].bioScale + '%';
+
+        const bodySum = card.querySelector('[data-bind="bodySummary"]');
+        if (bodySum) bodySum.textContent = state[i].bodyFont + ' • ' + state[i].bodyScale + '%';
+
+        const subSum = card.querySelector('[data-bind="subSummary"]');
+        if (subSum) subSum.textContent = state[i].subFont + ' • ' + state[i].subScale + '%';
+
+        const uiSum = card.querySelector('[data-bind="uiSummary"]');
+        if (uiSum) uiSum.textContent = state[i].uiFont + ' • ' + state[i].uiScale + '%';
+
+        applyStylesToIframe(i);
+        updateLayout();
+      };
+
+      input.addEventListener('input', handleChange);
+      input.addEventListener('change', handleChange);
+    });
+
+    // Expand button inside card
+    const expandBtn = card.querySelector('.btn-expand');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        setFocusMode(i);
+      });
+    }
+  });
+
+  // Navigation Tabs
+  document.querySelector('#tab-compare').addEventListener('click', () => setFocusMode(-1));
+  document.querySelector('#tab-A').addEventListener('click', () => setFocusMode(0));
+  document.querySelector('#tab-B').addEventListener('click', () => setFocusMode(1));
+  document.querySelector('#tab-C').addEventListener('click', () => setFocusMode(2));
+
+  // Device Switch
+  document.querySelector('#btn-desktop').addEventListener('click', () => {
+    deviceMode = 'desktop';
+    document.querySelector('#btn-desktop').setAttribute('aria-pressed', 'true');
+    document.querySelector('#btn-mobile').setAttribute('aria-pressed', 'false');
+    loadFrames();
+  });
+  document.querySelector('#btn-mobile').addEventListener('click', () => {
+    deviceMode = 'mobile';
+    document.querySelector('#btn-mobile').setAttribute('aria-pressed', 'true');
+    document.querySelector('#btn-desktop').setAttribute('aria-pressed', 'false');
+    loadFrames();
+  });
+
+  // Action Buttons
+  document.querySelector('#btn-copy-css').addEventListener('click', () => {
+    const cur = activeViewIndex >= 0 ? state[activeViewIndex] : state[0];
+    const cssText = \`:root {
+  /* Preset: \${cur.name} */
+  --font-title: '\${cur.titleFont}', sans-serif;
+  --weight-title: \${cur.titleWeight};
+  --lh-title: \${cur.titleLh};
+  --ls-title: \${cur.titleLs}em;
+  --scale-title: \${cur.titleScale}%;
+
+  --font-bio: '\${cur.bioFont}', serif;
+  --weight-bio: \${cur.bioWeight};
+  --lh-bio: \${cur.bioLh};
+  --ls-bio: \${cur.bioLs}em;
+  --scale-bio: \${cur.bioScale}%;
+
+  --font-body: '\${cur.bodyFont}', serif;
+  --weight-body: \${cur.bodyWeight};
+  --lh-body: \${cur.bodyLh};
+  --ls-body: \${cur.bodyLs}em;
+  --scale-body: \${cur.bodyScale}%;
+
+  --font-sub: '\${cur.subFont}', sans-serif;
+  --weight-sub: \${cur.subWeight};
+  --lh-sub: \${cur.subLh};
+  --ls-sub: \${cur.subLs}em;
+  --scale-sub: \${cur.subScale}%;
+
+  --font-ui: '\${cur.uiFont}', sans-serif;
+  --weight-ui: \${cur.uiWeight};
+  --lh-ui: \${cur.uiLh};
+  --ls-ui: \${cur.uiLs}em;
+  --scale-ui: \${cur.uiScale}%;
+
+  --font-brand: '\${cur.brandFont}', sans-serif;
+  --ls-brand: \${cur.brandLs}em;
+  --scale-brand: \${cur.brandScale}%;
+
+  --font-num: '\${cur.numFont}', sans-serif;
+  --ls-num: \${cur.numLs}em;
+  --scale-num: \${cur.numScale}%;
+}\`;
+    openModal('Variables CSS :root (' + cur.name + ')', cssText);
+  });
+
+  document.querySelector('#btn-copy-json').addEventListener('click', () => {
+    const jsonText = JSON.stringify(state, null, 2);
+    openModal('Configuration JSON des propositions', jsonText);
+  });
+
+  document.querySelector('#btn-reset').addEventListener('click', () => {
+    state = JSON.parse(JSON.stringify(INITIAL_STATE));
+    location.reload();
+  });
+
+  // Modal controls
+  document.querySelector('#modal-close-btn').addEventListener('click', () => {
+    document.querySelector('#modal').classList.remove('open');
+  });
+  document.querySelector('#modal-copy-btn').addEventListener('click', async () => {
+    const text = document.querySelector('#modal-text').value;
+    await navigator.clipboard.writeText(text);
+    document.querySelector('#status-text').textContent = 'Copié dans le presse-papier !';
+    setTimeout(() => { document.querySelector('#status-text').textContent = 'Polices prêtes'; }, 2500);
+    document.querySelector('#modal').classList.remove('open');
+  });
+}
+
+function setFocusMode(index) {
+  activeViewIndex = index;
+  const main = document.querySelector('#main-view');
+  const tabs = [
+    document.querySelector('#tab-compare'),
+    document.querySelector('#tab-A'),
+    document.querySelector('#tab-B'),
+    document.querySelector('#tab-C')
+  ];
+
+  tabs.forEach(t => t.setAttribute('aria-pressed', 'false'));
+
+  if (index === -1) {
+    main.className = 'mode-compare';
+    tabs[0].setAttribute('aria-pressed', 'true');
+    document.querySelectorAll('article.view-card').forEach(c => c.classList.remove('is-active'));
+  } else {
+    main.className = 'mode-focus';
+    tabs[index + 1].setAttribute('aria-pressed', 'true');
+    document.querySelectorAll('article.view-card').forEach((c, i) => {
+      c.classList.toggle('is-active', i === index);
+    });
+  }
+  updateLayout();
+}
+
+function openModal(title, text) {
+  document.querySelector('#modal-title').textContent = title;
+  document.querySelector('#modal-text').value = text;
+  document.querySelector('#modal').classList.add('open');
+  document.querySelector('#modal-text').select();
+}
+
+window.addEventListener('resize', updateLayout);
+bindControls();
+loadFrames();
+</script>
+</body>
+</html>`;
+
+fs.writeFileSync(path.join(root, 'index.html'), html);
+console.log('Built index.html successfully:', Buffer.byteLength(html), 'bytes');

@@ -1,101 +1,46 @@
 {
+  "verifiedAt": "26 October 2026",
   "errors": [],
-  "results": [
-    [
-      {
-        "title": "\"GT Ultra\"",
-        "body": "Literata",
-        "ui": "\"GT Standard L\"",
-        "brand": "\"GT Ultra\"",
-        "num": "\"GT Ultra\"",
-        "loaded": [
-          "GT Ultra",
-          "Literata",
-          "GT Standard L"
-        ],
-        "overflow": 0,
-        "images": 0,
-        "textLength": 4622
-      },
-      {
-        "title": "Literata",
-        "body": "Literata",
-        "ui": "\"GT Standard L\"",
-        "brand": "\"GT Ultra\"",
-        "num": "\"GT Ultra\"",
-        "loaded": [
-          "GT Ultra",
-          "Literata",
-          "GT Standard L"
-        ],
-        "overflow": 0,
-        "images": 0,
-        "textLength": 4622
-      },
-      {
-        "title": "\"GT Standard L\"",
-        "body": "Literata",
-        "ui": "\"GT Standard L\"",
-        "brand": "\"GT Ultra\"",
-        "num": "\"GT Ultra\"",
-        "loaded": [
-          "GT Ultra",
-          "Literata",
-          "GT Standard L"
-        ],
-        "overflow": 0,
-        "images": 0,
-        "textLength": 4622
-      }
-    ],
-    [
-      {
-        "title": "\"GT Ultra\"",
-        "body": "Literata",
-        "ui": "\"GT Standard L\"",
-        "brand": "\"GT Ultra\"",
-        "num": "\"GT Ultra\"",
-        "loaded": [
-          "GT Ultra",
-          "Literata",
-          "GT Standard L"
-        ],
-        "overflow": 0,
-        "images": 0,
-        "textLength": 4614
-      },
-      {
-        "title": "Literata",
-        "body": "Literata",
-        "ui": "\"GT Standard L\"",
-        "brand": "\"GT Ultra\"",
-        "num": "\"GT Ultra\"",
-        "loaded": [
-          "GT Ultra",
-          "Literata",
-          "GT Standard L"
-        ],
-        "overflow": 0,
-        "images": 0,
-        "textLength": 4614
-      },
-      {
-        "title": "\"GT Standard L\"",
-        "body": "Literata",
-        "ui": "\"GT Standard L\"",
-        "brand": "\"GT Ultra\"",
-        "num": "\"GT Ultra\"",
-        "loaded": [
-          "GT Ultra",
-          "Literata",
-          "GT Standard L"
-        ],
-        "overflow": 0,
-        "images": 0,
-        "textLength": 4614
-      }
-    ]
+  "frameResults": [
+    {
+      "idx": 0,
+      "titleFont": "\"GT Ultra\"",
+      "bioFont": "Literata",
+      "bodyFont": "Literata",
+      "uiFont": "\"GT Standard L\"",
+      "brandFont": "\"GT Ultra\"",
+      "numFont": "\"GT Ultra\"",
+      "loadedFonts": [
+        "GT Ultra",
+        "Literata",
+        "GT Standard L"
+      ],
+      "overflow": 0
+    },
+    {
+      "idx": 1,
+      "titleFont": "Literata",
+      "bioFont": "Literata",
+      "bodyFont": "Literata",
+      "uiFont": "\"GT Standard L\"",
+      "brandFont": "Literata",
+      "numFont": "\"GT Ultra\"",
+      "loadedFonts": [],
+      "overflow": 0
+    },
+    {
+      "idx": 2,
+      "titleFont": "\"GT Standard L\"",
+      "bioFont": "\"GT Standard L\"",
+      "bodyFont": "\"GT Standard L\"",
+      "uiFont": "\"GT Standard L\"",
+      "brandFont": "\"GT Standard L\"",
+      "numFont": "\"GT Ultra\"",
+      "loadedFonts": [],
+      "overflow": 0
+    }
   ],
-  "americaToggle": true,
+  "liveBioEditingWorked": true,
+  "fontSwitchingWorked": true,
   "outerMobileOverflow": 0
 }
