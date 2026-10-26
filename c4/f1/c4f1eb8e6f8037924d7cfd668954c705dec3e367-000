@@ -1,0 +1,11 @@
+// Capture the published Works page without editing its content. 26 October 2026, 16:15 Paris.
+const fs=require('fs'),path=require('path');
+const {chromium}=require('/Users/zenray/.claude/skills/zenray-edit/scripts/RenderComposition.cjs').loadPlaywright({});
+const root=path.dirname(__dirname);
+(async()=>{const browser=await chromium.launch({headless:true});const results={};
+for(const width of [1440,390]){const page=await browser.newPage({viewport:{width,height:1000},deviceScaleFactor:1});await page.goto('https://matthieuhuguet.com/works',{waitUntil:'networkidle'});await page.evaluate(async()=>{document.querySelectorAll('img').forEach(i=>i.loading='eager');for(let y=0;y<document.body.scrollHeight;y+=700){scrollTo(0,y);await new Promise(r=>setTimeout(r,70));}scrollTo(0,0)});await page.waitForTimeout(900);
+results[width]=await page.evaluate(()=>{const source=document.querySelector('#root');const clone=source.cloneNode(true);const originals=[source,...source.querySelectorAll('*')],copies=[clone,...clone.querySelectorAll('*')];let roles={title:0,body:0,ui:0};
+originals.forEach((el,i)=>{const dest=copies[i],s=getComputedStyle(el);const css=[...s].map(p=>p+':'+s.getPropertyValue(p)).join(';');dest.setAttribute('style',css+';animation:none;transition:none');if(el.tagName==='IMG'){dest.src=el.currentSrc||el.src;dest.removeAttribute('srcset');}if(el.tagName==='SCRIPT'){dest.remove();return}if(el instanceof HTMLAnchorElement)dest.href=el.href;
+const own=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();if(own){let role=/^H[1-6]$/.test(el.tagName)||own==='ZenRay'||(/^(3D|Code \/ Design)$/.test(own))?'title':el.closest('p')?'body':'ui';dest.dataset.role=role;roles[role]++;}});
+clone.querySelectorAll('script,video,iframe').forEach(el=>el.remove());return {html:clone.outerHTML,text:source.innerText,roles,title:document.title};});await page.close();}
+fs.writeFileSync(path.join(root,'Snapshots.json'),JSON.stringify(results));console.log(Object.fromEntries(Object.entries(results).map(([w,v])=>[w,{roles:v.roles,chars:v.text.length,title:v.title}])));await browser.close()})().catch(e=>{console.error(e);process.exit(1)});
